@@ -114,3 +114,53 @@ fn main() {
 // sharing the data between the threads required two things
 // 1 - shared ownership -> Arc<T>,
 // 2 - safe access -> Mutex<T> or RwLock<T>
+
+// revision exercises
+fn main(){
+    // 1 - here the code failes because Mutex can't provide the shared ownership access across threads
+    // we need Arc<Mutex<T>> so that multiple threads can access the same data safely.
+    let data = Mutex::new(0);
+    // in here without move we can't access the data from outside of the thread.
+    thread::spawn(move || {
+        *data.lock().unwrap() += 1;
+    });
+
+    // 2 - here in this both t1 and t2 deadlock may occur because the ordering of the a nd b in the threads is different
+    // when in thread A if it locks a then waits for b , while thread B locks b waits for a, neither can processed
+    // this is called circular wait condition.
+    let a = Arc::new(Mutex::new(1));
+    let b = Arc::new(Mutex::new(2));
+
+    let t1 = {
+        let a = Arc::clone(&a);
+        let b = Arc::clone(&b);
+        thread::spawn(move || {
+            let _a = a.lock().unwrap();
+            let _b = b.lock().unwrap();
+        })
+    };
+
+    let t2 = {
+        let a = Arc::clone(&a);
+        let b = Arc::clone(&b);
+        thread::spawn(move || {
+            let _b = b.lock().unwrap();
+            let _a = a.lock().unwrap();
+        })
+    };
+
+    // 3 - this part is conceptually unsafe because the main thread does not wait for spawned threads to complete
+    // the main missing part here is join() without these
+    // - the thread is still be running
+    // - the work may be incomplete
+    // - results are non deterministic
+    let counter = Arc::new(Mutex::new(0));
+
+    for _ in 0..10 {
+        let c = Arc::clone(&counter);
+        thread::spawn(move || {
+            let mut num = c.lock().unwrap();
+            *num += 1;
+        });
+    }
+}
