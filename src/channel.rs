@@ -229,10 +229,10 @@ fn main() {
     // - we have created a situation where we have a bound channel with buffer capacity 2
     // - in the loop we are sending messages with the limit 10
     // - while recieving them we are printing each message and waiting for 2 secs
-    // - rx will wait to get all the message but after gettign 2 messages the
-    // - sender will stop as it's bound is 2 and wait until the reciever buffer is clear
-    // - so the reciever create a room to let the 3rd mesaage by clearing the first message
-    // - and this continues until the loop ends.
+    // - the receiver continues to receive messages until all senders are dropped and the channel is closed.
+    // - when the buffer reaches capacity, further send() calls block until the receiver consumes a message.
+    // - when the receiver consumes a message, it frees one slot in the buffer
+    // - allowing a blocked sender to proceed and this continues until the loop ends.
     let handle = thread::spawn(move || {
         for i in 0..10 {
             println!("Producing {}", i);
