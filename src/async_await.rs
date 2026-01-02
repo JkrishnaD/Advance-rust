@@ -140,11 +140,110 @@ async fn recv_message(mut rx: Receiver<String>) {
     }
 }
 
+// #[tokio::main]
+// async fn main() {
+//     // all the tokio channles bounded so we need to provide the limit
+//     let (tx, rx) = channel::<String>(5);
+
+//     tokio::spawn(send_message(tx));
+//     recv_message(rx).await
+// }
+
+
 #[tokio::main]
 async fn main() {
-    // all the tokio channles bounded so we need to provide the limit
+    println!("My Advance Rust Learnings");
+
+    // exercise - 1
+    // join only make sense if the future eventually finishes
+    tokio::join!(short_task(), long_task());
+    println!("Both the messages are sent");
+
+    // exercise - 2
+
+    short_task().await;
+    tokio::spawn(async move { long_task().await });
+    // i won't see any difference here if we ask which will keep running when the main ends
+
+    // // exercise - 3
+    // creating a tokio channel
+    // let (tx, rx) = tokio::sync::mpsc::channel::<String>(2);
+    // // spawing each tokio runtime for each producer
+    // for _ in 0..2 {
+    //     let tx_clone = tx.clone();
+    //     // here using await for the producer doesn't make sense for concurrency
+    //     // because await makes producer finishes it's job and move to another
+    //     // so when we don't await here it continue to produce tasks without
+    //     // bothering whether it is completed or not.
+    //     tokio::spawn(producer(tx_clone));
+    // }
+
+    // // droping the tx to close the channels
+    // drop(tx);
+    // consumer(rx).await;
+
+    // // exercise - 4
+    tokio::select! {
+        tsk = fast_task() => println!("completed {:?}",tsk),
+        tsk = slow_task() => println!("{:?}",tsk)
+    }
+
+    // exercise - 5
     let (tx, rx) = channel::<String>(5);
 
-    tokio::spawn(send_message(tx));
-    recv_message(rx).await
+    for i in 1..3 {
+        let tx_clone = tx.clone();
+        println!("Sending job {i}");
+        tokio::spawn(producer(tx_clone));
+    }
+
+    drop(tx);
+
+    worker(rx).await;
+}
+
+async fn worker(mut rx: Receiver<String>) {
+    while let Some(job) = rx.recv().await {
+        println!("Worker processing {job}")
+    }
+}
+
+async fn short_task() {
+    for _ in 0..5 {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+    println!("Message after 100ms")
+}
+
+async fn long_task() {
+    for _ in 0..3 {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
+    println!("Message after 300ms")
+}
+
+async fn producer(tx: Sender<String>) {
+    // creating 3 different producers
+    for i in 0..3 {
+        tx.send(format!("Message from producer {}", i))
+            .await
+            .unwrap();
+    }
+}
+
+async fn consumer(mut rx: Receiver<String>) {
+    while let Some(message) = rx.recv().await {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        println!("Recieved Message: {}", message)
+    }
+}
+
+async fn fast_task() -> &'static str {
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    "fast task"
+}
+
+async fn slow_task() -> &'static str {
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    "slow task"
 }
