@@ -14,6 +14,14 @@ use std::{
 // The ownership and borrowing rules prevent this at compile time.
 */
 
+/*
+ * There are different ways of threads connection
+ * - one to one model
+ * - m to n model
+ * rust aims to have an extremely small runtime so for this the trade if sacrificing
+ * so here to reduce the load on runtime so the rust only includes one to one threads
+ */
+
 /* single thread
 fn main() {
     // in here the Arc meand Atomically reference conunted - which means it keeps the track of how many owners exist
@@ -32,6 +40,22 @@ fn main() {
     println!("printing the data from main {:?}", data)
 }
 */
+
+// when it comes to the execution whenever the main thread ends no matter what
+// the execution of other spawn threads stops as they run only until the main thread.
+// the code down here is the example
+// thread::spawn(move || {
+//     for i in 1..10 {
+//         println!("Message from the process {i}");
+//         thread::sleep(Duration::from_millis(1));
+//     }
+// });
+// for i in 1..5 {
+//     println!("Message from the process {i}");
+//     thread::sleep(Duration::from_millis(1));
+// }
+// in here using join methods make the main thread wait until thread complete it's job
+// handle.join().unwrap();
 
 /*  multiple threads
 fn main() {
@@ -64,6 +88,24 @@ fn main() {
     }
 
     println!("printing data {:?} from main thread", data.lock().unwrap());
+
+    let counter = Arc::new(Mutex::new(0));
+    let mut handles: Vec<JoinHandle<()>> = vec![];
+
+    for _ in 0..10 {
+        let count: Arc<Mutex<i32>> = Arc::clone(&counter);
+        let handle = thread::spawn(move || {
+            let mut num = count.lock().unwrap();
+            *num += 1;
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    println!("The total count is {:?}", counter.lock().unwrap())
 }
 */
 
@@ -116,7 +158,7 @@ fn main() {
 // 2 - safe access -> Mutex<T> or RwLock<T>
 
 // revision exercises
-fn main(){
+fn main() {
     // 1 - here the code failes because Mutex can't provide the shared ownership access across threads
     // we need Arc<Mutex<T>> so that multiple threads can access the same data safely.
     let data = Mutex::new(0);
